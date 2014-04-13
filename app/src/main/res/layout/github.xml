@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<fr.tvbarthel.parallax.sample.github.parallax.ParallaxRelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:parallax="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/parallax"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    parallax:parallax_background="@drawable/parallax_background">
+
+    <ImageView
+        android:id="@+id/house1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/house1"
+        android:layout_marginBottom="-70dp"
+        android:layout_marginRight="-40dp"
+        android:layout_alignRight="@+id/house2"
+        android:layout_above="@+id/house2"
+        android:tag="0.7|1"/>
+
+    <ImageView
+        android:id="@+id/house2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/house2"
+        android:layout_alignParentRight="true"
+        android:layout_marginRight="40dp"
+        android:layout_marginBottom="-50dp"
+        android:layout_above="@+id/spaceship_container"
+        android:tag="1|1"/>
+
+    <RelativeLayout
+        android:id="@+id/spaceship_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="220dp"
+        android:layout_marginRight="-50dp"
+        android:layout_marginLeft="50dp"
+        android:tag="2|-1">
+
+        <ImageView
+            android:id="@+id/spaceship_shadow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/spaceship_shadow"
+            android:layout_below="@+id/spaceship"
+            android:layout_marginTop="-55dp"
+            android:layout_centerHorizontal="true"/>
+
+        <ImageView
+            android:id="@+id/spaceship"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/spaceship"
+            android:layout_marginBottom="10dp"
+            android:layout_centerInParent="true"/>
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/git_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="-10dp"
+        android:tag="1|-1">
+
+        <ImageView
+            android:id="@+id/git_shadow"
+            android:src="@drawable/gitshadow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/git"
+            android:layout_marginTop="-30dp"
+            android:layout_marginLeft="210dp"/>
+
+        <ImageView
+            android:id="@+id/git"
+            android:src="@drawable/git"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="200dp"/>
+
+    </RelativeLayout>
+
+    <ImageView
+        android:id="@+id/message"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/message"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="80dp"
+        android:layout_marginLeft="-30dp"
+        android:tag="0.8|-1"/>
+
+
+</fr.tvbarthel.parallax.sample.github.parallax.ParallaxRelativeLayout>
