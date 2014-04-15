@@ -18,7 +18,7 @@
         android:layout_marginRight="-40dp"
         android:layout_alignRight="@+id/house2"
         android:layout_above="@+id/house2"
-        android:tag="0.7|1"/>
+        android:tag="1"/>
 
     <ImageView
         android:id="@+id/house2"
@@ -29,7 +29,7 @@
         android:layout_marginRight="40dp"
         android:layout_marginBottom="-50dp"
         android:layout_above="@+id/spaceship_container"
-        android:tag="1|1"/>
+        android:tag="2"/>
 
     <RelativeLayout
         android:id="@+id/spaceship_container"
@@ -39,7 +39,7 @@
         android:layout_marginBottom="220dp"
         android:layout_marginRight="-50dp"
         android:layout_marginLeft="50dp"
-        android:tag="2|-1">
+        android:tag="3">
 
         <ImageView
             android:id="@+id/spaceship_shadow"
@@ -67,7 +67,7 @@
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="-10dp"
-        android:tag="1|-1">
+        android:tag="4">
 
         <ImageView
             android:id="@+id/git_shadow"
@@ -95,7 +95,7 @@
         android:layout_alignParentBottom="true"
         android:layout_marginBottom="80dp"
         android:layout_marginLeft="-30dp"
-        android:tag="0.8|-1"/>
+        android:tag="5"/>
 
 
 </fr.tvbarthel.parallax.sample.github.parallax.ParallaxRelativeLayout>

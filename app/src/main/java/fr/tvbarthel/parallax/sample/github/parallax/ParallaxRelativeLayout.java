@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.hardware.Sensor;
@@ -14,6 +13,7 @@ import android.util.AttributeSet;
 import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewPropertyAnimator;
 import android.view.WindowManager;
 import android.widget.RelativeLayout;
 
@@ -76,7 +76,7 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
     /**
      * Children view to animate
      */
-    private HashMap<View, ParallaxPlane> mChildrenToAnimate;
+    private HashMap<View, Integer> mChildrenToAnimate;
 
     /**
      * store last acceleration values
@@ -87,16 +87,6 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
      * use to calculate dT
      */
     private long mTimeStamp;
-
-    /**
-     * Rect used to store original window
-     */
-    private Rect mParallaxDim;
-
-    /**
-     * Rect used to display the current window
-     */
-    private Rect mCurrentParallaxDim;
 
     /**
      * parallax Background
@@ -137,12 +127,9 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
         //remap axis and axis's orientation to match current rotation
         remapAxis(rotation);
 
-        mChildrenToAnimate = new HashMap<View, ParallaxPlane>();
+        mChildrenToAnimate = new HashMap<View, Integer>();
 
-        //init array
         mLastAcceleration = new float[]{0.0f, 0.0f};
-        mParallaxDim = new Rect(0, 0, 0, 0);
-        mCurrentParallaxDim = new Rect(0, 0, 0, 0);
 
         mTimeStamp = 0;
     }
@@ -175,10 +162,8 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
             }
 
             if (childView.getTag() != null) {
-                String plane = childView.getTag().toString();
-                float ratio = Float.valueOf(plane.substring(0, plane.indexOf("|")));
-                int direction = Integer.valueOf(plane.substring(plane.indexOf("|")+1, plane.length()));
-                mChildrenToAnimate.put(childView, new ParallaxPlane(ratio, direction));
+                Integer zOrder = Integer.valueOf(childView.getTag().toString());
+                mChildrenToAnimate.put(childView, zOrder);
             }
         }
 
@@ -236,14 +221,14 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
             addParallaxChildrenRecursively(this);
         }
 
-
-        LayoutParams params = new LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        params.addRule(RelativeLayout.CENTER_IN_PARENT, RelativeLayout.TRUE);
-        params.setMargins((int) (-this.getWidth() / 2.0f), (int) (-this.getHeight() / 2.0f), 0, 0);
-        this.removeView(mParallaxBackground);
-        this.addView(mParallaxBackground, 0, params);
-
+        if (mParallaxBackground.getParent() == null) {
+            LayoutParams params = new LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            params.addRule(RelativeLayout.CENTER_IN_PARENT, RelativeLayout.TRUE);
+            params.setMargins((int) (-this.getWidth() / 2.0f), (int) (-this.getHeight() / 2.0f), 0, 0);
+            //this.removeView(mParallaxBackground);
+            this.addView(mParallaxBackground, 0, params);
+        }
     }
 
 
@@ -287,35 +272,31 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
             }
 
 
-//            //TODO extends Rect and add animation possibility, for smooth motion
-//            mCurrentParallaxDim.set(
-//                    mParallaxDim.left - (int) (mRemappedViewOrientationX
-//                            * mParallaxBackground.getWidth() / 20 * translation[mRemappedViewAxisX]),
-//                    mParallaxDim.top - (int) (mRemappedViewOrientationY
-//                            * mParallaxBackground.getHeight() / 20 * translation[mRemappedViewAxisY]),
-//                    mParallaxDim.right - (int) (mRemappedViewOrientationX
-//                            * mParallaxBackground.getWidth() / 20 * translation[mRemappedViewAxisX]),
-//                    mParallaxDim.bottom - (int) (mRemappedViewOrientationY
-//                            * mParallaxBackground.getHeight() / 20 * translation[mRemappedViewAxisY])
-//            );
+            ViewPropertyAnimator animator = mParallaxBackground.animate();
 
-            mParallaxBackground.animate()
-                    .translationX(mRemappedViewOrientationX * this.getWidth() / DEFAULT_RADIUS_RATIO *
-                            translation[mRemappedViewAxisX])
-                    .translationY(-mRemappedViewOrientationY * this.getHeight() / DEFAULT_RADIUS_RATIO *
-                            translation[mRemappedViewAxisY]).setDuration(ANIMATION_DURATION_IN_MILLI);
+            if (animator != null) {
+                animator.cancel();
+                animator.translationX(mRemappedViewOrientationX * this.getWidth()
+                        / DEFAULT_RADIUS_RATIO * translation[mRemappedViewAxisX])
+                        .translationY(mRemappedViewOrientationY * this.getHeight()
+                                / DEFAULT_RADIUS_RATIO * translation[mRemappedViewAxisY])
+                        .setDuration(ANIMATION_DURATION_IN_MILLI);
+            }
 
 
             //TODO don't animate all first ground child
             for (View parallaxItem : mChildrenToAnimate.keySet()) {
-                ParallaxPlane plane = mChildrenToAnimate.get(parallaxItem);
-                parallaxItem.animate()
-                        .translationX(plane.getTranslationDirection() * mRemappedViewOrientationX * this.getWidth()
-                                / DEFAULT_RADIUS_RATIO / plane.getTranslationRatio() * translation[mRemappedViewAxisX])
-                        .translationY(-plane.getTranslationDirection() * mRemappedViewOrientationY * this.getHeight()
-                                / DEFAULT_RADIUS_RATIO / plane.getTranslationRatio() * translation[mRemappedViewAxisY])
-                        .setDuration(ANIMATION_DURATION_IN_MILLI);
-
+                ParallaxPlane plane =
+                        ParallaxPlaneFactory.createPlane(mChildrenToAnimate.get(parallaxItem));
+                animator = parallaxItem.animate();
+                if (animator != null) {
+                    animator.cancel();
+                    animator.translationX(plane.getTranslationDirection() * mRemappedViewOrientationX * this.getWidth()
+                            / DEFAULT_RADIUS_RATIO / plane.getTranslationRatio() * translation[mRemappedViewAxisX])
+                            .translationY(plane.getTranslationDirection() * mRemappedViewOrientationY * this.getHeight()
+                                    / DEFAULT_RADIUS_RATIO / plane.getTranslationRatio() * translation[mRemappedViewAxisY])
+                            .setDuration(ANIMATION_DURATION_IN_MILLI);
+                }
             }
         }
 
@@ -326,6 +307,5 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
     }
 }
