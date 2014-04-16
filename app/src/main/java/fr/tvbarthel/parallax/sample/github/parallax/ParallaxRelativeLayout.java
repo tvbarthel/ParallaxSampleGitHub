@@ -1,5 +1,6 @@
 package fr.tvbarthel.parallax.sample.github.parallax;
 
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
@@ -13,7 +14,6 @@ import android.util.AttributeSet;
 import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewPropertyAnimator;
 import android.view.WindowManager;
 import android.widget.RelativeLayout;
 
@@ -36,7 +36,7 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
     /**
      * boundary minimum to avoid noise
      */
-    private static final float MINIMUM_ACCELERATION = 0.18f;
+    private static final float TRANSALATION_NOISE = 0.1f;
 
     /**
      * boundary maximum, over it phone rotates
@@ -51,7 +51,7 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
     /**
      * ratio used to determine radius according to ZOrder
      */
-    private static final int DEFAULT_RADIUS_RATIO = 10;
+    private static final int DEFAULT_RADIUS_RATIO = 12;
 
     /**
      * remapped axis X according to current device orientation
@@ -93,6 +93,16 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
      */
     private ParallaxBackground mParallaxBackground;
 
+    /**
+     * Animator for smooth face motion
+     */
+    private ObjectAnimator mParallaxAnimator;
+
+    /**
+     * last known translation
+     */
+    private float[] mLastTranslation;
+
 
     /**
      * Constructor
@@ -120,18 +130,25 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
         this.setWillNotDraw(false);
 
 
-        //get current device orientation
+        /**
+         * Remap axis and axis' orientation according to the current device rotation
+         */
         final int rotation = ((WindowManager) context.getSystemService(context.WINDOW_SERVICE))
                 .getDefaultDisplay().getRotation();
-
-        //remap axis and axis's orientation to match current rotation
         remapAxis(rotation);
 
         mChildrenToAnimate = new HashMap<View, Integer>();
 
         mLastAcceleration = new float[]{0.0f, 0.0f};
 
+        mLastTranslation = new float[]{0.0f, 0.0f};
+
         mTimeStamp = 0;
+
+        mParallaxAnimator = ObjectAnimator.ofObject(this, "CurrentTranslationValues",
+                new FloatArrayEvaluator(2), 0);
+
+        mParallaxAnimator.setDuration(ANIMATION_DURATION_IN_MILLI);
     }
 
     public Bitmap drawableToBitmap(Drawable drawable) {
@@ -170,44 +187,58 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
     }
 
     /**
-     * Used to remap axis and axis' orientation according to the current device rotation
+     * Used to remap axis and axis' orientation according to the current device rotation.
+     * Orientation inverted = -1 otherwise +1
      *
      * @param rotation current device rotation
      */
     private void remapAxis(int rotation) {
         switch (rotation) {
             case Surface.ROTATION_0:
-                //remapped x axis : use sensor axis Y
                 mRemappedViewAxisX = 0;
-                //remapped x axis : use sensor axis X
                 mRemappedViewAxisY = 1;
-                //remapped x axis orientation : default on x axis
                 mRemappedViewOrientationX = +1;
-                //remapped y axis orientation : inverse on y axis
                 mRemappedViewOrientationY = -1;
                 break;
 
             case Surface.ROTATION_90:
-                //remapped x axis : use sensor axis X
                 mRemappedViewAxisX = 1;
-                //remapped x axis : use sensor axis Y
                 mRemappedViewAxisY = 0;
-                //remapped x axis orientation : inverse  on x axis
                 mRemappedViewOrientationX = -1;
-                //remapped y axis orientation : inverse  on y axis
                 mRemappedViewOrientationY = -1;
                 break;
 
             case Surface.ROTATION_270:
-                //remapped x axis : use sensor axis Y
                 mRemappedViewAxisX = 1;
-                //remapped x axis : use sensor axis X
                 mRemappedViewAxisY = 0;
-                //remapped x axis orientation : default  on x axis
                 mRemappedViewOrientationX = +1;
-                //remapped y axis orientation : default  on y axis
                 mRemappedViewOrientationY = +1;
                 break;
+        }
+    }
+
+    /**
+     * used by object animator to update current orientation values
+     *
+     * @param evaluatedValues
+     */
+    public void setCurrentTranslationValues(float[] evaluatedValues) {
+
+        final float translateX = mRemappedViewOrientationX * this.getWidth() / DEFAULT_RADIUS_RATIO * evaluatedValues[mRemappedViewAxisX];
+        final float translateY = mRemappedViewOrientationY * this.getHeight() / DEFAULT_RADIUS_RATIO * evaluatedValues[mRemappedViewAxisY];
+
+        //animate background
+        mParallaxBackground.setTranslationX(translateX);
+        mParallaxBackground.setTranslationY(translateY);
+
+
+        //  animate each child provided with an integer tag used as zOrder for parallax
+        for (View parallaxItem : mChildrenToAnimate.keySet()) {
+            ParallaxPlane plane =
+                    ParallaxPlaneFactory.createPlane(mChildrenToAnimate.get(parallaxItem));
+
+            parallaxItem.setTranslationX(translateX * plane.getTranslationDirection() / plane.getTranslationRatio());
+            parallaxItem.setTranslationY(translateY * plane.getTranslationDirection() / plane.getTranslationRatio());
         }
     }
 
@@ -226,7 +257,6 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
             params.addRule(RelativeLayout.CENTER_IN_PARENT, RelativeLayout.TRUE);
             params.setMargins((int) (-this.getWidth() / 2.0f), (int) (-this.getHeight() / 2.0f), 0, 0);
-            //this.removeView(mParallaxBackground);
             this.addView(mParallaxBackground, 0, params);
         }
     }
@@ -247,62 +277,67 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
         if (mTimeStamp != 0) {
             final float dT = (event.timestamp - mTimeStamp) * NS2S;
 
-            //process new value to determine current x translation
-            if (Math.abs(accelerationX) < MINIMUM_ACCELERATION) {
-                translation[mRemappedViewAxisX] = 0;
-            } else if (Math.abs(accelerationX) > MAXIMUM_ACCELERATION) {
-                translation[mRemappedViewAxisX] = mLastAcceleration[mRemappedViewAxisX] + 0.5f
-                        * MAXIMUM_ACCELERATION * dT * dT;
+            /**
+             * Use basic integration to retrieve position from acceleration.
+             * p = 1/2 * a * dT^2
+             */
+            if (Math.abs(accelerationX) > MAXIMUM_ACCELERATION) {
+                translation[mRemappedViewAxisX] = mLastAcceleration[mRemappedViewAxisX] + 0.5f * MAXIMUM_ACCELERATION * dT * dT;
             } else {
-                translation[mRemappedViewAxisX] = mLastAcceleration[mRemappedViewAxisX] + 0.5f
-                        * accelerationX * dT * dT;
+                translation[mRemappedViewAxisX] = mLastAcceleration[mRemappedViewAxisX] + 0.5f * accelerationX * dT * dT;
                 mLastAcceleration[mRemappedViewAxisX] = accelerationX;
             }
 
-            //process new value to determine current x translation
-            if (Math.abs(accelerationY) < MINIMUM_ACCELERATION) {
-                translation[mRemappedViewAxisY] = 0;
-            } else if (Math.abs(accelerationY) > MAXIMUM_ACCELERATION) {
-                translation[mRemappedViewAxisY] = mLastAcceleration[mRemappedViewAxisY] + 0.5f
-                        * MAXIMUM_ACCELERATION * dT * dT;
+            if (Math.abs(accelerationY) > MAXIMUM_ACCELERATION) {
+                translation[mRemappedViewAxisY] = mLastAcceleration[mRemappedViewAxisY] + 0.5f * MAXIMUM_ACCELERATION * dT * dT;
             } else {
-                translation[mRemappedViewAxisY] = mLastAcceleration[mRemappedViewAxisY] + 0.5f
-                        * accelerationY * dT * dT;
+                translation[mRemappedViewAxisY] = mLastAcceleration[mRemappedViewAxisY] + 0.5f * accelerationY * dT * dT;
                 mLastAcceleration[mRemappedViewAxisY] = accelerationY;
             }
 
+            /**
+             * In order to keep small variations, the noise is dynamic.
+             * We normalized translation and noise it by the means of last and new value.
+             */
+            final float normalizerX = (Math.abs(mLastTranslation[mRemappedViewAxisX]) + Math.abs(translation[mRemappedViewAxisX])) / 2;
+            final float normalizerY = (Math.abs(mLastTranslation[mRemappedViewAxisY]) + Math.abs(translation[mRemappedViewAxisY])) / 2;
 
-            ViewPropertyAnimator animator = mParallaxBackground.animate();
+            final float translationDifX = Math.abs(mLastTranslation[mRemappedViewAxisX] - translation[mRemappedViewAxisX]) / normalizerX;
+            final float translationDifY = Math.abs(mLastTranslation[mRemappedViewAxisY] - translation[mRemappedViewAxisY]) / normalizerY;
 
-            if (animator != null) {
-                animator.cancel();
-                animator.translationX(mRemappedViewOrientationX * this.getWidth()
-                        / DEFAULT_RADIUS_RATIO * translation[mRemappedViewAxisX])
-                        .translationY(mRemappedViewOrientationY * this.getHeight()
-                                / DEFAULT_RADIUS_RATIO * translation[mRemappedViewAxisY])
-                        .setDuration(ANIMATION_DURATION_IN_MILLI);
+            final float dynamicNoiseX = TRANSALATION_NOISE / normalizerX;
+            final float dynamicNoiseY = TRANSALATION_NOISE / normalizerY;
+
+            float[] newTranslation = null;
+
+            if (translationDifX > dynamicNoiseX && translationDifY > dynamicNoiseY) {
+                newTranslation = translation.clone();
+            } else if (translationDifX > dynamicNoiseX) {
+                newTranslation = new float[2];
+                newTranslation[mRemappedViewAxisX] = translation[mRemappedViewAxisX];
+                newTranslation[mRemappedViewAxisY] = mLastTranslation[mRemappedViewAxisY];
+            } else if (translationDifY > dynamicNoiseY) {
+                newTranslation = new float[2];
+                newTranslation[mRemappedViewAxisX] = mLastTranslation[mRemappedViewAxisX];
+                newTranslation[mRemappedViewAxisY] = translation[mRemappedViewAxisY];
             }
 
-
-            //TODO don't animate all first ground child
-            for (View parallaxItem : mChildrenToAnimate.keySet()) {
-                ParallaxPlane plane =
-                        ParallaxPlaneFactory.createPlane(mChildrenToAnimate.get(parallaxItem));
-                animator = parallaxItem.animate();
-                if (animator != null) {
-                    animator.cancel();
-                    animator.translationX(plane.getTranslationDirection() * mRemappedViewOrientationX * this.getWidth()
-                            / DEFAULT_RADIUS_RATIO / plane.getTranslationRatio() * translation[mRemappedViewAxisX])
-                            .translationY(plane.getTranslationDirection() * mRemappedViewOrientationY * this.getHeight()
-                                    / DEFAULT_RADIUS_RATIO / plane.getTranslationRatio() * translation[mRemappedViewAxisY])
-                            .setDuration(ANIMATION_DURATION_IN_MILLI);
+            /**
+             * Launch  evaluation between last translation and new one only if at least one dif
+             * is higher than the noise
+             */
+            if (newTranslation != null) {
+                if (mParallaxAnimator.isRunning()) {
+                    mParallaxAnimator.cancel();
                 }
+                mParallaxAnimator.setObjectValues(mLastTranslation.clone(), translation.clone());
+                mParallaxAnimator.start();
+                mLastTranslation[mRemappedViewAxisX] = translation[mRemappedViewAxisX];
+                mLastTranslation[mRemappedViewAxisY] = translation[mRemappedViewAxisY];
             }
+
         }
-
         mTimeStamp = event.timestamp;
-
-
     }
 
     @Override
