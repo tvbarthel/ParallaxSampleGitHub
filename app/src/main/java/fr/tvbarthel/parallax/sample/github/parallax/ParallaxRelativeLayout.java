@@ -349,6 +349,8 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
 
                 boolean wishedMotion = true;
 
+                //TODO replace by a low pass filter ?!!
+
                 /**
                  * Check direction only for translation values close from noise
                  */
