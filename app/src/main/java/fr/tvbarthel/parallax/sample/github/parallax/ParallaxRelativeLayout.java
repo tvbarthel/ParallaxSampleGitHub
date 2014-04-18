@@ -49,9 +49,9 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
     private static final int ANIMATION_DURATION_IN_MILLI = 200;
 
     /**
-     * size of buffer used to determined a wished motion
+     * smoothing ratio for Low-Pass filter algorithm
      */
-    private static final int DIRECTION_BUFFER_SIZE = 5;
+    private static final float LOW_PASS_FILTER_SMOOTHING = 3.0f;
 
     /**
      * ratio used to determine radius according to ZOrder
@@ -108,16 +108,6 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
      */
     private float[] mLastTranslation;
 
-    /**
-     * buffer used to know if the new x acceleration is noise or wished motion
-     */
-    private float mDirectionBufferX;
-
-    /**
-     * buffer used to know if the new y acceleration is noise or wished motion
-     */
-    private float mDirectionBufferY;
-
 
     /**
      * Constructor
@@ -159,10 +149,6 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
         mLastTranslation = new float[]{0.0f, 0.0f};
 
         mTimeStamp = 0;
-
-        mDirectionBufferX = 1.0f;
-
-        mDirectionBufferY = 1.0f;
 
         mParallaxAnimator = ObjectAnimator.ofObject(this, "CurrentTranslationValues",
                 new FloatArrayEvaluator(2), 0);
@@ -343,74 +329,22 @@ public class ParallaxRelativeLayout extends RelativeLayout implements SensorEven
 
 
             /**
-             * if new translation aren't noise as values, check if directions are noise as direction
+             * if new translation aren't noise apply Low-Pass filter algorithm and animate parallax
+             * items
              */
             if (newTranslation != null) {
 
-                boolean wishedMotion = true;
+                newTranslation[mRemappedViewAxisX] = mLastTranslation[mRemappedViewAxisX] + (newTranslation[mRemappedViewAxisX] - mLastTranslation[mRemappedViewAxisX]) / LOW_PASS_FILTER_SMOOTHING;
+                newTranslation[mRemappedViewAxisY] = mLastTranslation[mRemappedViewAxisY] + (newTranslation[mRemappedViewAxisY] - mLastTranslation[mRemappedViewAxisY]) / LOW_PASS_FILTER_SMOOTHING;
 
-                //TODO replace by a low pass filter ?!!
-
-                /**
-                 * Check direction only for translation values close from noise
-                 */
-                if ((translationDifX < 3.0 * dynamicNoiseX) || (translationDifY < 3.0 * dynamicNoiseY)) {
-
-                    final float currentBufferDirectionX = Math.signum(mDirectionBufferX);
-                    final float currentBufferDirectionY = Math.signum(mDirectionBufferY);
-
-                    /**
-                     * A motion is considered as wished if value is higher in case of increasing
-                     * buffer or smaller in case of decreasing buffer
-                     */
-                    final boolean wishedMotionX = (currentBufferDirectionX >= 0.0f && newTranslation[mRemappedViewAxisX] >= mLastTranslation[mRemappedViewAxisX])
-                            || (currentBufferDirectionX < 0.0f && newTranslation[mRemappedViewAxisX] < mLastTranslation[mRemappedViewAxisX]);
-                    final boolean wishedMotionY = (currentBufferDirectionY >= 0.0f && newTranslation[mRemappedViewAxisY] >= mLastTranslation[mRemappedViewAxisY])
-                            || (currentBufferDirectionY < 0.0f && newTranslation[mRemappedViewAxisY] < mLastTranslation[mRemappedViewAxisY]);
-
-                    /**
-                     * reset newTranslation values for axis where motion is not wished
-                     */
-                    if (wishedMotionX && wishedMotionY) {
-                    } else if (wishedMotionX) {
-                        newTranslation[mRemappedViewAxisY] = mLastTranslation[mRemappedViewAxisY];
-                    } else if (wishedMotionY) {
-                        newTranslation[mRemappedViewAxisX] = mLastTranslation[mRemappedViewAxisX];
-                    } else {
-                        wishedMotion = false;
-                    }
-
-                    /**
-                     * Update buffer values
-                     */
-                    mDirectionBufferX += newTranslation[mRemappedViewAxisX] >= mLastTranslation[mRemappedViewAxisX] ? 1.0f : -1.0f;
-                    mDirectionBufferY += newTranslation[mRemappedViewAxisY] >= mLastTranslation[mRemappedViewAxisY] ? 1.0f : -1.0f;
-
-                    final float updatedDirectionX = Math.signum(mDirectionBufferX);
-                    final float updatedDirectionY = Math.signum(mDirectionBufferX);
-
-                    if (Math.abs(mDirectionBufferX) > DIRECTION_BUFFER_SIZE) {
-                        mDirectionBufferX = DIRECTION_BUFFER_SIZE * updatedDirectionX;
-                    }
-
-                    if (Math.abs(mDirectionBufferY) > DIRECTION_BUFFER_SIZE) {
-                        mDirectionBufferY = DIRECTION_BUFFER_SIZE * updatedDirectionY;
-                    }
+                if (mParallaxAnimator.isRunning()) {
+                    mParallaxAnimator.cancel();
                 }
+                mParallaxAnimator.setObjectValues(mLastTranslation.clone(), newTranslation.clone());
+                mParallaxAnimator.start();
+                mLastTranslation[mRemappedViewAxisX] = newTranslation[mRemappedViewAxisX];
+                mLastTranslation[mRemappedViewAxisY] = newTranslation[mRemappedViewAxisY];
 
-                /**
-                 * Animate parallax item if both translation values are higher than noise
-                 * and direction are the result of real wished motion.
-                 */
-                if (wishedMotion) {
-                    if (mParallaxAnimator.isRunning()) {
-                        mParallaxAnimator.cancel();
-                    }
-                    mParallaxAnimator.setObjectValues(mLastTranslation.clone(), translation.clone());
-                    mParallaxAnimator.start();
-                    mLastTranslation[mRemappedViewAxisX] = translation[mRemappedViewAxisX];
-                    mLastTranslation[mRemappedViewAxisY] = translation[mRemappedViewAxisY];
-                }
 
             }
 
