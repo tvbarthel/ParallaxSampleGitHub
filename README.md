@@ -7,7 +7,7 @@ Sandbox for parallax experiment
 
 This project is a first attempt to perform parallax effect. Considered it as a proof concept since no effort has been made to support multiple screen sizes | orientations and different device sensors.
 
-[Short video on YouTube](https://www.youtube.com/watch?v=hu4kZRP5mZA)
+[ParallaxSampleGitHub on YouTube](https://www.youtube.com/watch?v=hu4kZRP5mZA)
 
 Motions
 ====================
@@ -23,14 +23,9 @@ Replace your classic RelativeLayout by a ParallaxRelativeLayout and add tag (1-5
 
 Don't forget parallax_background !
 
-1 : most background plane(small house in sample)
-2 : background plane (second house in sample)
-3 : middle plane (spaceship in sample)
-4 : foreground plane (luke gitwalker in sample)
-5 : most foreground (404 in sample)
+```xml
 
-<pre>
-  <fr.tvbarthel.parallax.sample.github.parallax.ParallaxRelativeLayout
+ <fr.tvbarthel.parallax.sample.github.parallax.ParallaxRelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:parallax="http://schemas.android.com/apk/res-auto"
     android:id="@+id/parallax"
@@ -65,11 +60,12 @@ Don't forget parallax_background !
             android:tag="5"/>
     
     </fr.tvbarthel.parallax.sample.github.parallax.ParallaxRelativeLayout>
-</pre>
+    
+```
 
 Then extend ParallaxFragment and use setParallaxRelativeLayout()
 
-<pre>
+```java
 public class GitHubFragment extends ParallaxFragment {
 
     @Override
@@ -82,6 +78,17 @@ public class GitHubFragment extends ParallaxFragment {
         return v;
     }
 }
+```
+
+android:tag
+=========
+
+<pre>
+1 : most background plane(small house in sample)
+2 : background plane (second house in sample)
+3 : middle plane (spaceship in sample)
+4 : foreground plane (luke gitwalker in sample)
+5 : most foreground (404 in sample)
 </pre>
 
 Credits and License
